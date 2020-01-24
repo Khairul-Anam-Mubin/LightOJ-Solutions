@@ -1,3 +1,4 @@
+1082 - Array Queries.cpp
 #include <bits/stdc++.h>
  
 using namespace std ;
