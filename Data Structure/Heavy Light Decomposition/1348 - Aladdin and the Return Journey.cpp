@@ -12,6 +12,7 @@ using namespace std;
 #define S            second  
 #define PB           push_back
 #define MP           make_pair
+#define File         F();
 #define Fin          freopen("input.txt","r",stdin)
 #define Fout         freopen("output.txt","w",stdout)
 #define Precision(a) cout << fixed << setprecision(a)
@@ -29,16 +30,21 @@ typedef long long ll;
 typedef unsigned long long ull;
 typedef long double ld;
 
+void F(){
+    #ifndef ONLINE_JUDGE 
+        Fin;
+        Fout; 
+    #endif
+}
 template <typename T> T Sqr(T x) { T n = x * x ; return n ;}
 template <typename T> T Pow(T B,T P){ if(P==0) return 1; if(P&1) return B*Pow(B,P-1);  else return Sqr(Pow(B,P/2));}
 template <typename T> T Abs(T a) {if(a<0)return -a;else return a;}
 template <typename T> void Print(T ar[] , int a , int b) {for (int i = a; i + 1 <= b ; i++)cout << ar[i] << " ";cout << ar[b] << "\n";}
 template <typename T> void Print(T ar[] , int n) {for (int i = 0; i + 1 < n; i++)cout << ar[i] << " ";cout << ar[n - 1] << "\n";} 
+template <typename T> void Print(const vector<T> &v) {for (int i = 0; i + 1 < v.size() ; i++) cout << v[i] << " ";cout << v.back() << "\n";}
 
 
-const int mxN = 30000;
-vector <int> pos;
-
+/**************************Segment tree*****************************/
 struct SegmentTree {
     vector <long long> seg;
     vector <long long> lazy;
@@ -46,10 +52,12 @@ struct SegmentTree {
     void Init(int N) {
         seg.assign(N << 2, 0);
         lazy.assign(N << 2 , 0);
+        return;
     }
-    void Init(vector <long long> &s) {
+    void Init(const vector <long long> &s) {
         Init(s.size() + 1);
         ar = s;
+        return;    
     }
     void PushDown(int cur , int left , int right) {
         seg[cur] += (right - left + 1) * lazy[cur];
@@ -60,6 +68,9 @@ struct SegmentTree {
         lazy[cur] = 0;   
         return;
     }
+    long long Merge(long long x , long long y) {
+        return x + y;
+    }
     void Build(int cur , int left , int right) {
         lazy[cur] = 0;
         if (left == right) {
@@ -69,7 +80,7 @@ struct SegmentTree {
         int mid = (left + right) >> 1;
         Build(cur << 1 , left , mid);
         Build(cur << 1 | 1 , mid + 1 , right);
-        seg[cur] = seg[cur << 1] + seg[cur << 1 | 1];
+        seg[cur] = Merge(seg[cur << 1] , seg[cur << 1 | 1]);
         return;
     }
     void Update(int cur , int left , int right , int pos , long long val) {
@@ -87,7 +98,7 @@ struct SegmentTree {
         int mid = (left + right) >> 1;
         Update(cur << 1 , left , mid , l , r , val);
         Update(cur << 1 | 1 , mid + 1 , right , l , r , val);
-        seg[cur] = seg[cur << 1] + seg[cur << 1 | 1];
+        seg[cur] = Merge(seg[cur << 1] , seg[cur << 1 | 1]);
         return ;
     }
     long long Query(int cur , int left , int right , int l , int r) {
@@ -97,50 +108,62 @@ struct SegmentTree {
         int mid = (left + right) >> 1;
         long long p1 = Query(cur << 1 , left , mid , l , r);
         long long p2 = Query(cur << 1 | 1 , mid + 1 , right , l , r);
-        return (p1 + p2) ;
+        return Merge(p1 , p2);
     }
 } T;
 
-struct PathQuery {
+/**************************HeavyLightDecomposition***********************/
+/*  1.  All nodes are number from 0 to n - 1  */ 
+/*  2.  Assign the graph by Init(graph) or simply Init(total nodes) and 
+        call AddEdge(u , v) for all the edges */
+/*  3.  Must be Take the node value from input directly or use the 
+        TakeNodeVal(nodeval) to assigning the node value */
+/*  4.  Call Build() to construct hld and segment tree */
+/*  5.  simply use the path query by query(u , v) and update(pos , val) */
+
+struct HeavyLightDecompose {
     vector <vector <int> > g ; // graph
-    vector <long long> segarr; // segment tree array on the flat tree
-    // HLD and LCA staffs
-    int chain_no, indx;
-    int N , root = 0 , po ;
-    vector <vector <int> > sptab ; 
+    vector <long long> node_val;
+    int N , root = 0;
     vector <int> depth , parent , sub;
+    // HLD staffs
+    int chain_no, indx;
     vector <int> chain_head , chain_ind;
     vector <int> node_serial , serial_node;
+    vector <long long> segarr; // tree on linear format
     void Init(int n) {
         N = n;
-        po = log2((N + 1)) + 1 ;
-        g.assign(N + 1 , {}) ;
-        sptab.assign(N + 1 , {}) ;
-        depth.resize(N + 1) ;
-        parent.resize(N + 1) ;
-        sub.resize(N + 1);
-        chain_head.assign(N + 1 , -1);
-        chain_ind.resize(N + 1);
-        node_serial.resize(N + 1);
-        serial_node.resize(N + 1);
-        segarr.resize(N + 1);
+        g.assign(N , {});
+        node_val.clear();
+        segarr.resize(N);
+        depth.resize(N);
+        parent.resize(N);
+        sub.resize(N);
+        chain_head.assign(N, -1);
+        chain_ind.resize(N);
+        node_serial.resize(N);
+        serial_node.resize(N);
+        return;
     }
     void Init(const vector <vector<int>> &_g) {
-        Init(_g.size() + 1);
+        Init(_g.size());
         g = _g;
+        return;
     }
     void AddEdge(int u , int v) {
         g[u].push_back(v) ;
         g[v].push_back(u) ;
+        return;
     }
-    void ShowGraph() {
-        for(int i = 0 ; i < N ; i++) {
-            cout << i << " : " ;
-            for(int j = 0 ; j < g[i].size() ; j++) {
-                cout << g[i][j] << " " ;
-            }
-            cout << "\n" ;
-        }
+    void TakeNodeVal(const vector <long long> &_node_val) {
+        node_val = _node_val;
+    }
+    void Build() {
+        Dfs(root);
+        chain_no = 0, indx = 0;
+        HLD(0);
+        T.Init(segarr);
+        T.Build(1 , 0 , N - 1);
     }
     void Dfs(int u, int par = -1) {
         sub[u] = 1;
@@ -149,146 +172,86 @@ struct PathQuery {
             parent[u] = -1;
         }
         for (int v : g[u]) {
-            if (v != par) {
-                parent[v] = u;
-                depth[v] = depth[u] + 1;
-                Dfs(v , u);
-                sub[u] += sub[v];
-            }
+            if (v == par) continue;
+            parent[v] = u;
+            depth[v] = depth[u] + 1;
+            Dfs(v , u);
+            sub[u] += sub[v];
+            
         }
+        return;
     }
-    void SparceTable() {
-        for(int i = 0 ; i < N ; i++) {
-            sptab[i][0] = parent[i] ;
-        }
-        for(int j = 1 ; (1 << j) < N ; j++) {
-            for(int i = 0 ; i < N ; i++) {
-                if(sptab[i][j - 1] != -1) {
-                    sptab[i][j] = sptab[sptab[i][j - 1]][j - 1] ;
-                }
-            }
-        }
-    }
-    void Build() {
-        for (int i = 0 ; i <= N ; i++) {
-            for (int j = 0 ; j <= po ; j++) {
-                sptab[i].push_back(-1);
-            }
-        }
-        Dfs(root);
-        SparceTable();
-        // here heavy light call and other DS used..
-        chain_no = 0, indx = 0;
-        HeavyLightDecompose(0 , 0);
-        T.Init(segarr);
-        T.Build(1 , 0 , N - 1);
-    }
-    void HeavyLightDecompose(int u , int par) {
+    void HLD(int u , int par = -1) {
         if (chain_head[chain_no] == -1) chain_head[chain_no] = u;
-        chain_ind[u] = chain_no; 
+        chain_ind[u] = chain_no;
         node_serial[u] = indx;
         serial_node[indx] = u;
-        segarr[indx] = pos[u]; // tree flatting..
+        segarr[indx] = node_val[u]; // tree flatting..
         indx++;
         int heavychild = -1 , heavysize = 0;
         for (int v : g[u]) {
-            if (v != par) {
-                if (sub[v] > heavysize) {
-                    heavysize = sub[v];
-                    heavychild = v;
-                }
+            if (v == par) continue;
+            if (sub[v] > heavysize) {
+                heavysize = sub[v];
+                heavychild = v;
             }
         }
-        if (heavychild != -1) 
-            HeavyLightDecompose(heavychild , u);
+        if (heavychild != -1) HLD(heavychild , u);
         for (int v : g[u]) {
             if (v != par && v != heavychild) {
                 chain_no++;
-                HeavyLightDecompose(v , u);
+                HLD(v , u);
             }
         }
+        return;
     }
-    // These are HLD queries using other DS like segment tree.
-    void HldUpdate(int p , int val) {
+    void Update(int p , int val) {
+        T.Update(1 , 0 , N - 1, node_serial[p] , -node_val[p]);
         T.Update(1 , 0 , N - 1, node_serial[p] , val);
+        node_val[p] = val;
     }
-    long long HldQuery(int u, int v) {
+    long long Query(int u , int v) {
         long long ans = 0;
-        while (chain_ind[u] != chain_ind[v]) { // Query on different heavy and light chain..
-            ans += T.Query(1 , 0 , N - 1, node_serial[chain_head[chain_ind[u]]] , node_serial[u]);
-            u = sptab[chain_head[chain_ind[u]]][0];
+        for ( ; chain_ind[u] != chain_ind[v] ; v = parent[chain_head[chain_ind[v]]]) {
+            if (depth[chain_head[chain_ind[u]]] > depth[chain_head[chain_ind[v]]])
+                swap( u , v );
+            ans += T.Query(1 , 0 , N - 1 , node_serial[chain_head[chain_ind[v]]] , node_serial[v]);
         }
-        // Query on same chain..
-        ans += T.Query(1 , 0 , N - 1, node_serial[v] , node_serial[u]); 
+        if (depth[u] > depth[v])
+            swap(u , v);
+        ans += T.Query(1 , 0 , N - 1 , node_serial[u] , node_serial[v]);
         return ans;
     }
-    int Lca(int u , int v) {
-        if (depth[u] < depth[v]) swap(u , v) ;
-        int log ;
-        for (log = 1 ; (1 << log) <= depth[u] ; log++); log--;
-        for (int i = log ; i >= 0 ; i--) {
-            if (depth[u] - (1 << i) >= depth[v]) {
-                u = sptab[u][i];
-            }
-        }
-        if (u == v) return u;
-        for (int i = log ; i >= 0 ; i--) {
-            if (sptab[u][i] != -1 && sptab[u][i] != sptab[v][i]) {
-                u = sptab[u][i];
-                v = sptab[v][i];
-            } 
-        }
-        return parent[u];
-    }
-    int Getdist(int u , int v) {
-        return depth[u] + depth[v] - (2 * (depth[Lca(u , v)])) ;
-    }
-    bool IsAnsector(int u , int v) {
-        int cur = Lca(u , v) ;
-        if(cur == u) return 1 ;
-        return 0 ;
-    }
-} HLD;
-long long Query(int u , int v) {
-    long long lca = HLD.Lca(u , v);
-    long long ans = HLD.HldQuery(u  , lca);
-    ans += HLD.HldQuery(v , lca);
-    ans -= pos[lca];
-    return ans;
-}
-void Update(int p , int val) {
-    HLD.HldUpdate(p , -pos[p]);
-    HLD.HldUpdate(p , val);
-    pos[p] = val;
-}   
+} hd;
 int main() {
     Faster
     Test {
         int n; cin >> n;
+        hd.Init(n);
+        vector <long long> pos;
         for (int i = 0; i < n; i++) {
             ll x; cin >> x;
             pos.PB(x);
         }
-        HLD.Init(n);
+        hd.TakeNodeVal(pos);
         for (int i = 0; i < n - 1; i++) {
             int u , v; cin >> u >> v;
-            HLD.AddEdge(u , v);
+            hd.AddEdge(u , v);
         }
-        HLD.Build();
+        hd.Build();
         int q; cin >> q;
         cout << "Case " << tc << ":\n";
         while (q--) {
             int x; cin >> x;
             if (x == 0) {
                 int u , v; cin >> u >> v;
-                cout << Query(u , v) << "\n";
+                cout << hd.Query(u , v) << "\n";
             } else if (x == 1) {
                 int node , val;
                 cin >> node >> val;
-                Update(node , val);
+                hd.Update(node , val);
             }
         }
-        pos.clear();
     }
     return 0;
 }
